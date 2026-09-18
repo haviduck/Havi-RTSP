@@ -1,0 +1,8 @@
+node_modules/
+.agents/
+.DS_Store
+*.log
+.env
+hevc-test.h265
+*.h265
+sample.mp4

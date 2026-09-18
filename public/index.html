@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Havi-RTSP</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/player.css">
+</head>
+<body class="player-page">
+  <header class="ui-header demo-header">
+    <div class="ui-brand">
+      <img class="ui-logo" src="/Haviduck.gif" width="36" height="36" alt="">
+      <span class="ui-wordmark">Havi-RTSP</span>
+    </div>
+  </header>
+  <div class="demo-layout">
+    <section class="demo-main">
+      <div class="player-stage" id="player-stage">
+        <canvas class="player-ambient" id="ambient" aria-hidden="true"></canvas>
+        <div class="player-shell is-idle" id="player-shell">
+          <video class="player-video" id="video" muted autoplay playsinline></video>
+          <canvas class="player-canvas" id="canvas"></canvas>
+          <button class="player-launch" id="launch-play" type="button" aria-label="Open setup">
+            <span class="player-launch-icon">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </span>
+          </button>
+          <div class="player-warn" id="compat-warn"></div>
+          <div class="player-hud" id="hud">
+            <div class="player-hud-bottom">
+              <button class="player-icon" id="ctrl-play" type="button" aria-label="Play">
+                <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="icon-pause" viewBox="0 0 24 24" hidden><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+              </button>
+              <button class="player-icon" id="ctrl-stop" type="button" aria-label="Stop">
+                <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+              </button>
+              <div class="player-volume">
+                <button class="player-icon" id="ctrl-mute" type="button" aria-label="Mute">
+                  <svg id="icon-vol" viewBox="0 0 24 24"><path d="M5 10v4h4l5 5V5l-5 5H5zm12.5 2a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+                </button>
+                <input class="ui-range" id="ctrl-vol" type="range" min="0" max="1" step="0.01" value="0.8">
+              </div>
+              <span class="player-time" id="hud-time">00:00</span>
+              <span class="player-state" id="hud-state">Idle</span>
+              <button class="player-icon" id="ctrl-fs" type="button" aria-label="Fullscreen">
+                <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm12 3h-3v2h5v-5h-2v3zM7 7h3V5H5v5h2V7zm9-2v2h3v3h2V5h-5z"/></svg>
+              </button>
+            </div>
+            <div class="player-scrub" aria-hidden="true"><div class="player-scrub-live" id="scrub-live"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="demo-side ui-panel" id="demo-side">
+      <form class="ui-form ui-form-stack demo-source" id="source-form">
+        <label class="ui-field">
+          <span class="ui-label">Stream URL</span>
+          <input class="ui-input" id="rtsp-url" name="url" type="text" spellcheck="false" value="rtsp://user:pass@camera:554/path" required>
+        </label>
+        <button class="ui-button" type="submit">Play</button>
+      </form>
+      <p class="ui-status" id="status">Idle</p>
+      <dl class="demo-stats">
+        <div><dt>Video</dt><dd id="stat-codec">—</dd></div>
+        <div><dt>Size</dt><dd id="stat-size">—</dd></div>
+        <div><dt>Rate</dt><dd id="stat-fps">—</dd></div>
+        <div><dt>Bitrate</dt><dd id="stat-bitrate">—</dd></div>
+        <div><dt>Latency</dt><dd id="stat-latency">—</dd></div>
+        <div><dt>Audio</dt><dd id="stat-audio">—</dd></div>
+        <div><dt>Decoder</dt><dd id="stat-mode">—</dd></div>
+        <div><dt>Reconnects</dt><dd id="stat-reconnects">0</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <div class="ui-modal" id="setup-modal" hidden>
+    <div class="ui-modal-backdrop" data-close-modal></div>
+    <div class="ui-modal-card" role="dialog" aria-labelledby="setup-title">
+      <h2 class="ui-modal-title" id="setup-title">Setup</h2>
+      <form class="ui-form ui-form-stack" id="setup-form">
+        <label class="ui-field">
+          <span class="ui-label">Stream URL</span>
+          <input class="ui-input" id="setup-url" name="url" type="text" spellcheck="false" value="rtsp://user:pass@camera:554/path" required>
+        </label>
+        <div class="ui-form-actions">
+          <button class="ui-button" type="submit">Play</button>
+          <button class="ui-button is-ghost" id="setup-cancel" type="button">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script type="module" src="/js/player.js"></script>
+</body>
+</html>

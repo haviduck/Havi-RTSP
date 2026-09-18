@@ -1,0 +1,40 @@
+{
+  "name": "havi-rtsp",
+  "version": "1.0.0",
+  "description": "Play RTSP H.264/H.265 in a browser by remuxing RTP to fMP4.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "havi-rtsp": "./bin/havi-rtsp.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node bin/havi-rtsp.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "rtsp",
+    "rtp",
+    "h264",
+    "h265",
+    "hevc",
+    "mse",
+    "fmp4"
+  ],
+  "author": "Carl Martin Haug",
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

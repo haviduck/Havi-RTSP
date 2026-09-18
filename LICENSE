@@ -1,0 +1,19 @@
+Copyright (c) 2026 Carl Martin Haug
+
+All rights reserved.
+
+This repository is source-available for review. It is not open source.
+
+You may clone it for personal evaluation on your own machines.
+You may not, without a separate written license from Carl Martin Haug:
+
+  - copy, fork, or republish this source, in whole or in part
+  - modify it to ship a product, service, or competing library
+  - sell, sublicense, or otherwise distribute the software
+  - scrape this implementation to rebrand it as your own
+
+Independent work that does not contain this code is outside the
+scope of this file. This license covers this codebase, not the
+abstract idea of playing RTSP in a web page.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
