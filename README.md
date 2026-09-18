@@ -15,7 +15,7 @@ node bin/havi-rtsp.js --url rtsp://user:pass@camera:554/path
 
 Then open http://127.0.0.1:8787
 
-The page under `public/` is the demo (controls, stats, the glow behind the video). The library is `src/`. Don't treat the demo chrome as part of the API.
+The page under `public/` is the demo. The library is `src/`. Don't treat the demo chrome as part of the API.
 
 ## Use as a library
 
