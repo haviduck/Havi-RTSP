@@ -24,7 +24,3 @@ import { createGateway, RtspClient } from "havi-rtsp";
 ```
 
 `createGateway()` serves the demo and a WebSocket remux. `RtspClient` is the session if you want to wire your own sink.
-
-## License
-
-Proprietary. Copyright Carl Martin Haug. See LICENSE.
