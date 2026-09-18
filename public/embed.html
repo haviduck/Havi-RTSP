@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Havi-RTSP · embed</title>
+  <link rel="stylesheet" href="css/embed.css" />
+</head>
+<body class="emb-page">
+  <main class="emb-layout">
+    <p class="emb-hint">Script in the page. RTSP URL in. Video out.</p>
+    <havi-player id="player" muted controls></havi-player>
+    <form class="emb-form" id="form">
+      <input class="emb-url" id="url" type="text" placeholder="rtsp://user:pass@camera:554/path" autocomplete="off" spellcheck="false" />
+      <button class="emb-btn" type="submit">Play</button>
+    </form>
+    <p class="emb-status" id="status">Paste a stream and press Play.</p>
+    <pre class="emb-code" id="snippet" hidden></pre>
+  </main>
+  <script src="../dist/havi-rtsp.browser.js"></script>
+  <script src="js/embed.js"></script>
+</body>
+</html>

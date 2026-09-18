@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { createPipeline } from "../stream/factory.js";
 import { normalizeStreamUrl } from "../stream/url.js";
+import { attachTcpPipe, pipeTemplate } from "./tcp-pipe.js";
+import { createHttpTcpLayer } from "./tcp-http.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
+const DIST_DIR = path.resolve(__dirname, "../../dist");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -22,18 +25,45 @@ export function createGateway(options = {}) {
   const host = options.host || "127.0.0.1";
   const port = options.port || 8787;
   const defaultUrl = options.url || "rtsp://user:pass@camera:554/path";
+  const tcpEnabled = options.tcp !== false;
+  const tcpPath = options.tcpPath || "/tcp";
   const pipelines = new Map();
 
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     if (url.pathname === "/api/health") {
-      json(res, 200, { ok: true, defaultUrl, viewers: [...pipelines.values()].reduce((n, p) => n + p.subscribers.size, 0) });
+      json(res, 200, {
+        ok: true,
+        defaultUrl,
+        viewers: [...pipelines.values()].reduce((n, p) => n + p.subscribers.size, 0),
+        tcp: tcpEnabled ? { http: "/tcp/open", ws: `${tcpPath}?host={host}&port={port}` } : null,
+      });
       return;
     }
+    if (httpTcp?.handle(req, res, url)) return;
     serveStatic(res, url.pathname);
   });
 
-  const wss = new WebSocketServer({ server, path: "/ws" });
+  const tcpOpts = {
+    bindHost: host,
+    allow: options.tcpAllow,
+    target: options.tcpTarget,
+  };
+  const httpTcp = tcpEnabled ? createHttpTcpLayer(tcpOpts) : null;
+  const tcp = tcpEnabled
+    ? attachTcpPipe(server, { path: tcpPath, noServer: true, ...tcpOpts })
+    : null;
+
+  const wss = new WebSocketServer({ noServer: true });
+  server.on("upgrade", (req, socket, head) => {
+    const pathname = new URL(req.url, "http://x").pathname;
+    const target = pathname === "/ws" ? wss : pathname === tcpPath ? tcp?.wss : null;
+    if (!target) {
+      socket.destroy();
+      return;
+    }
+    target.handleUpgrade(req, socket, head, (ws) => target.emit("connection", ws, req));
+  });
   wss.on("connection", async (ws, req) => {
     const reqUrl = new URL(req.url, `http://${req.headers.host}`);
     let streamUrl = defaultUrl;
@@ -79,13 +109,22 @@ export function createGateway(options = {}) {
     host,
     port,
     defaultUrl,
+    pipePath: tcp ? tcp.path : null,
     listen() {
       return new Promise((resolve) => {
-        server.listen(port, host, () => resolve({ host, port, url: `http://${host}:${port}/` }));
+        server.listen(port, host, () => resolve({
+          host,
+          port,
+          url: `http://${host}:${port}/`,
+          pipe: tcp ? pipeTemplate({ host, port, path: tcp.path }) : null,
+          embed: `http://${host}:${port}/embed.html`,
+        }));
       });
     },
     close() {
       return new Promise((resolve) => {
+        httpTcp?.close();
+        tcp?.close();
         wss.close();
         server.close(() => resolve());
       });
@@ -94,10 +133,19 @@ export function createGateway(options = {}) {
 }
 
 function serveStatic(res, pathname) {
-  const rel = pathname === "/" ? "/index.html" : pathname;
+  // /dist/* and /havi-rtsp.browser.js -> browser bundle.
+  const fromDist = pathname.startsWith("/dist/")
+    || pathname === "/havi-rtsp.browser.js"
+    || pathname === "/havi-rtsp.browser.mjs";
+  const root = fromDist ? DIST_DIR : PUBLIC_DIR;
+  const rel = pathname === "/"
+    ? "/index.html"
+    : pathname.startsWith("/dist/")
+      ? pathname.slice(5)
+      : pathname;
   const safe = path.normalize(rel).replace(/^(\.\.[/\\])+/, "");
-  const file = path.join(PUBLIC_DIR, safe);
-  if (!file.startsWith(PUBLIC_DIR)) {
+  const file = path.join(root, safe);
+  if (!file.startsWith(root)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;

@@ -1,9 +1,9 @@
-import { EventEmitter } from "node:events";
-import net from "node:net";
-import { URL } from "node:url";
+import { Emitter } from "../util/emitter.js";
+import { getDefaultTransport } from "../transport/registry.js";
 import { parseRtp } from "../rtp/packet.js";
 import { createH264Depayloader, isIdr } from "../rtp/h264.js";
 import { createH265Depayloader, isHevcKeyframe } from "../rtp/h265.js";
+import { createAacDepayloader } from "../rtp/aac.js";
 import { pickVideoTrack, pickAudioTrack, parseSdp, resolveControlUrl } from "./sdp.js";
 import { createJpegDepayloader } from "../rtp/jpeg.js";
 import { authorize, credentialsFromUrl } from "./auth.js";
@@ -11,11 +11,12 @@ import { buildRequest, parseRtspMessage, sessionId, sessionTimeoutMs } from "./p
 
 const USER_AGENT = "Havi-RTSP/1.0";
 
-export class RtspClient extends EventEmitter {
+export class RtspClient extends Emitter {
   constructor(url, options = {}) {
     super();
     this.url = normalizeRtspUrl(url);
     this.options = options;
+    this.connect = options.connect || getDefaultTransport();
     this.credentials = credentialsFromUrl(this.url);
     this.digestNc = 1;
     this.socket = null;
@@ -156,20 +157,17 @@ export class RtspClient extends EventEmitter {
     });
   }
 
-  #connect(host, port) {
-    return new Promise((resolve, reject) => {
-      const socket = net.connect({ host, port }, () => resolve());
-      socket.setNoDelay(true);
-      socket.on("data", (chunk) => this.#onData(chunk));
-      socket.on("error", (err) => {
-        reject(err);
-        this.emit("error", err);
-      });
-      socket.on("close", () => {
-        if (!this.closed) this.emit("error", new Error("RTSP socket closed"));
-      });
-      this.socket = socket;
+  async #connect(host, port) {
+    if (!this.connect) {
+      throw new Error("No transport configured. Import the package entry (Node) or set one with setDefaultTransport().");
+    }
+    const socket = await this.connect({ host, port, url: this.url });
+    socket.on("data", (chunk) => this.#onData(chunk));
+    socket.on("error", (err) => this.emit("error", err));
+    socket.on("close", () => {
+      if (!this.closed) this.emit("error", new Error("RTSP socket closed"));
     });
+    this.socket = socket;
   }
 
   #startKeepAlive(intervalMs) {

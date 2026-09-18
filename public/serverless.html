@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Havi-RTSP · in the page</title>
+  <link rel="stylesheet" href="css/serverless.css" />
+</head>
+<body class="sl-page">
+  <main class="sl-layout">
+    <header class="sl-header">
+      <img class="sl-logo" src="Haviduck.gif" alt="" />
+      <div>
+        <h1 class="sl-title">Havi-RTSP, in the page</h1>
+        <p class="sl-sub">RTSP client and fMP4 remux run here. Same-origin <code>/tcp/open</code> is the TCP layer.</p>
+      </div>
+    </header>
+
+    <form class="sl-form" id="sl-form">
+      <label class="sl-field sl-field-wide">
+        <span>Camera</span>
+        <input id="sl-url" type="text" placeholder="rtsp://user:pass@camera:554/path" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="sl-actions">
+        <button type="submit" class="sl-btn sl-btn-primary" id="sl-play">Play</button>
+        <button type="button" class="sl-btn" id="sl-stop">Stop</button>
+      </div>
+    </form>
+
+    <details class="sl-advanced" id="sl-advanced">
+      <summary>TCP layer override</summary>
+      <label class="sl-field">
+        <span>Leave empty to use this page’s <code>/tcp</code></span>
+        <input id="sl-pipe" type="text" placeholder="ws://127.0.0.1:8787/tcp?host={host}&amp;port={port}" autocomplete="off" spellcheck="false" />
+      </label>
+    </details>
+
+    <section class="sl-stage">
+      <video id="sl-video" playsinline autoplay muted controls></video>
+      <canvas id="sl-canvas" hidden></canvas>
+      <img id="sl-img" alt="" hidden />
+    </section>
+
+    <p class="sl-status" id="sl-status">Idle. Paste a camera URL.</p>
+    <dl class="sl-stats">
+      <div><dt>Codec</dt><dd id="sl-codec">—</dd></div>
+      <div><dt>Size</dt><dd id="sl-size">—</dd></div>
+      <div><dt>Rate</dt><dd id="sl-rate">—</dd></div>
+      <div><dt>Audio</dt><dd id="sl-audio">—</dd></div>
+    </dl>
+  </main>
+
+  <script src="../dist/havi-rtsp.browser.js"></script>
+  <script src="js/serverless.js"></script>
+</body>
+</html>

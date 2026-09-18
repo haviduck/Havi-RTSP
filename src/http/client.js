@@ -1,11 +1,12 @@
-import { EventEmitter } from "node:events";
 import http from "node:http";
 import https from "node:https";
+import { Emitter } from "../util/emitter.js";
 import { MjpegParser, parseBoundary, frameFromJpeg } from "./mjpeg.js";
 
 const USER_AGENT = "Havi-RTSP/1.0";
 
-export class HttpMjpegClient extends EventEmitter {
+// Node only (node:http). Browser: use <img src> for MJPEG.
+export class HttpMjpegClient extends Emitter {
   constructor(url) {
     super();
     this.url = String(url).trim();

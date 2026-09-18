@@ -1,16 +1,19 @@
-import { EventEmitter } from "node:events";
+import { Emitter } from "../util/emitter.js";
 import { Fmp4Muxer } from "../mux/fmp4.js";
 import { AacFmp4Muxer } from "../mux/fmp4-audio.js";
 import { RtspClient } from "../rtsp/client.js";
 import { pickAudioTrack } from "../rtsp/sdp.js";
-import { HttpMjpegClient } from "../http/client.js";
 import { isHttpUrl } from "./url.js";
 import { backoffMs, sleep } from "./backoff.js";
 
-export class RtspPipeline extends EventEmitter {
-  constructor(url) {
+// Platform-neutral; no node:* imports.
+// options.client           RtspClient options ({ connect, timeoutMs })
+// options.createHttpClient (url) => { play(), close(), on("ready"|"jpeg-frame"|"error"|"close") }. Node only.
+export class RtspPipeline extends Emitter {
+  constructor(url, options = {}) {
     super();
     this.url = url;
+    this.options = options;
     this.client = null;
     this.muxer = null;
     this.audioMuxer = null;
@@ -88,7 +91,11 @@ export class RtspPipeline extends EventEmitter {
 
   #httpSession() {
     return new Promise((resolve, reject) => {
-      const client = new HttpMjpegClient(this.url);
+      if (!this.options.createHttpClient) {
+        reject(new Error("HTTP MJPEG is not available on this platform. Use an <img> tag for http(s) URLs."));
+        return;
+      }
+      const client = this.options.createHttpClient(this.url);
       this.client = client;
       this.muxer = null;
       this.audioMuxer = null;
@@ -124,7 +131,7 @@ export class RtspPipeline extends EventEmitter {
 
   #rtspSession() {
     return new Promise((resolve, reject) => {
-      const client = new RtspClient(this.url);
+      const client = new RtspClient(this.url, this.options.client || {});
       this.client = client;
       this.muxer = null;
       this.audioMuxer = null;

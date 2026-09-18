@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import { md5Hex, randomHex } from "../util/md5.js";
 
 export function credentialsFromUrl(url) {
   try {
@@ -51,7 +51,7 @@ export function authorize({ method, uri, header, credentials, nc = 1 }) {
   const qop = (parsed.params.qop || "").split(",")[0].trim();
   const opaque = parsed.params.opaque;
   const algorithm = parsed.params.algorithm || "MD5";
-  const cnonce = crypto.randomBytes(8).toString("hex");
+  const cnonce = randomHex(8);
   const ncStr = nc.toString(16).padStart(8, "0");
   const ha1 = md5(`${credentials.username}:${realm}:${credentials.password}`);
   const ha2 = md5(`${method}:${uri}`);
@@ -73,5 +73,5 @@ export function authorize({ method, uri, header, credentials, nc = 1 }) {
 }
 
 function md5(value) {
-  return crypto.createHash("md5").update(value).digest("hex");
+  return md5Hex(value);
 }

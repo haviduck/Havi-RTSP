@@ -1,0 +1,81 @@
+/* Minimal embed recipe. Prefix emb- so it stays off the demo chrome. */
+:root {
+  --emb-bg: #0b0d10;
+  --emb-panel: #14181d;
+  --emb-line: #2a3139;
+  --emb-text: #dfe4ea;
+  --emb-muted: #9aa4af;
+  --emb-accent: #2f7ff5;
+  --emb-ok: #3ccf8e;
+  --emb-warn: #f0b13b;
+  --emb-err: #f0584f;
+}
+
+.emb-page {
+  margin: 0;
+  background: var(--emb-bg);
+  color: var(--emb-text);
+  font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.emb-layout {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.emb-hint {
+  margin: 0;
+  color: var(--emb-muted);
+}
+
+.emb-form {
+  display: flex;
+  gap: 8px;
+}
+
+.emb-url {
+  flex: 1;
+  padding: 8px 10px;
+  background: var(--emb-panel);
+  color: var(--emb-text);
+  border: 1px solid var(--emb-line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.emb-btn {
+  padding: 8px 14px;
+  background: var(--emb-accent);
+  color: #fff;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.emb-status {
+  margin: 0;
+  color: var(--emb-muted);
+}
+
+.emb-status.is-ok { color: var(--emb-ok); }
+.emb-status.is-warn { color: var(--emb-warn); }
+.emb-status.is-err { color: var(--emb-err); }
+
+.emb-code {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--emb-panel);
+  border: 1px solid var(--emb-line);
+  border-radius: 4px;
+  overflow: auto;
+  color: var(--emb-muted);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+havi-player {
+  border: 1px solid var(--emb-line);
+}

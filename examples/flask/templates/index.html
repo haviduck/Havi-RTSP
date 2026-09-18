@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Havi-RTSP via Flask</title>
+  <style>
+    body { margin: 0; background: #0b0d10; color: #dfe4ea; font: 14px system-ui, sans-serif; }
+    .havi-page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .havi-form { display: flex; gap: 8px; margin-bottom: 16px; }
+    .havi-form input { flex: 1; padding: 8px 10px; background: #14181d; color: inherit; border: 1px solid #2a3139; border-radius: 4px; }
+    .havi-form button { padding: 8px 14px; background: #2f7ff5; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+    .havi-stage { position: relative; background: #000; aspect-ratio: 16 / 9; }
+    .havi-stage video, .havi-stage canvas, .havi-stage img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .havi-stage [hidden] { display: none; }
+    .havi-status { margin-top: 10px; color: #9aa4af; }
+    .havi-status.is-ok { color: #3ccf8e; }
+    .havi-status.is-warn { color: #f0b13b; }
+    .havi-status.is-err { color: #f0584f; }
+    .havi-hint { color: #9aa4af; margin: 0 0 16px; }
+  </style>
+</head>
+<body>
+  <main class="havi-page">
+    <p class="havi-hint">Script in the page. Flask only opens TCP. No Node.</p>
+    <form class="havi-form" id="form">
+      <input id="url" type="text" placeholder="rtsp://user:pass@camera:554/path" autocomplete="off" />
+      <button type="submit">Play</button>
+    </form>
+    <div class="havi-stage">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="canvas" hidden></canvas>
+      <img id="image" alt="" hidden />
+    </div>
+    <p class="havi-status" id="status">Paste a stream and press Play.</p>
+  </main>
+  <script src="/havi-rtsp.browser.js"></script>
+  <script src="/static/havi-page.js"></script>
+</body>
+</html>
