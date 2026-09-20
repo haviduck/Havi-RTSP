@@ -6,6 +6,7 @@ import { createBrowserConnect, inferPipe, GATEWAY_PIPE } from "./browser/connect
 import { defineHaviPlayer } from "./browser/element.js";
 import { autoload } from "./browser/autoload.js";
 import { isDenoHost, startDenoHost } from "./host/deno.js";
+import { isWorkerScope, startWorkerHost } from "./browser/worker-host.js";
 
 export const DEFAULT_PIPE = GATEWAY_PIPE;
 
@@ -25,6 +26,7 @@ export function createPipeline(url, options = {}) {
     ...currentLayer,
     proxy: options.proxy || currentLayer.proxy,
     base: options.base || currentLayer.base,
+    preferHttp: options.preferHttp ?? currentLayer.preferHttp,
   });
   return new RtspPipeline(url, {
     ...options,
@@ -41,6 +43,9 @@ if (typeof HAVI_HOST_AUTOSTART !== "undefined" && HAVI_HOST_AUTOSTART && isDenoH
   startDenoHost();
 }
 
+// Loaded as `new Worker(bundleUrl)` by play({ worker: true }): host the pipeline off-thread.
+if (isWorkerScope()) startWorkerHost();
+
 export { RtspPipeline } from "./stream/pipeline.js";
 export { RtspClient, normalizeRtspUrl } from "./rtsp/client.js";
 export { normalizeStreamUrl, isHttpUrl } from "./stream/url.js";
@@ -52,6 +57,8 @@ export { inferPipe, inferHttpBase, createBrowserConnect, GATEWAY_PIPE, STANDALON
 export { createHttpTransport } from "./transport/http.js";
 export { canDirectConnect, directConnect, directSocketsStatus, explainDirectSockets } from "./transport/direct.js";
 export { isDenoHost, startDenoHost } from "./host/deno.js";
+export { WorkerPipeline, canUseWorker, defaultWorkerUrl } from "./browser/worker-pipeline.js";
+export { isWorkerScope, startWorkerHost } from "./browser/worker-host.js";
 export { HaviPlayerElement } from "./browser/element.js";
 export { parseSdp, pickVideoTrack, pickAudioTrack } from "./rtsp/sdp.js";
 export { parseRtp } from "./rtp/packet.js";

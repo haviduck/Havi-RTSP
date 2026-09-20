@@ -1838,7 +1838,9 @@ var HaviRtsp = (() => {
     RtspClient: () => RtspClient,
     RtspPipeline: () => RtspPipeline,
     STANDALONE_PIPE: () => STANDALONE_PIPE,
+    WorkerPipeline: () => WorkerPipeline,
     canDirectConnect: () => canDirectConnect,
+    canUseWorker: () => canUseWorker,
     configureLayer: () => configureLayer,
     configurePipe: () => configurePipe,
     createBrowserConnect: () => createBrowserConnect,
@@ -1846,6 +1848,7 @@ var HaviRtsp = (() => {
     createHttpTransport: () => createHttpTransport,
     createPipeline: () => createPipeline,
     createWebSocketTransport: () => createWebSocketTransport,
+    defaultWorkerUrl: () => defaultWorkerUrl,
     directConnect: () => directConnect,
     directSocketsStatus: () => directSocketsStatus,
     explainDirectSockets: () => explainDirectSockets,
@@ -1854,6 +1857,7 @@ var HaviRtsp = (() => {
     inferPipe: () => inferPipe,
     isDenoHost: () => isDenoHost,
     isHttpUrl: () => isHttpUrl,
+    isWorkerScope: () => isWorkerScope,
     normalizeRtspUrl: () => normalizeRtspUrl,
     normalizeStreamUrl: () => normalizeStreamUrl,
     parseRtp: () => parseRtp,
@@ -1862,7 +1866,8 @@ var HaviRtsp = (() => {
     pickVideoTrack: () => pickVideoTrack,
     play: () => play,
     setDefaultTransport: () => setDefaultTransport,
-    startDenoHost: () => startDenoHost
+    startDenoHost: () => startDenoHost,
+    startWorkerHost: () => startWorkerHost
   });
   init_buffer_shim();
 
@@ -4900,9 +4905,15 @@ ${msg.body}`);
     }
     return "";
   }
+  function pipeFromBase(base) {
+    const trimmed = String(base || "").replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(trimmed)) return "";
+    return `${trimmed.replace(/^http/i, "ws")}/tcp?host={host}&port={port}`;
+  }
   function createBrowserConnect(options = {}) {
     const proxy = options.proxy || options.pipe;
     const base = options.base || (!proxy ? inferHttpBase() : "");
+    const preferHttp = options.preferHttp === true;
     return async (target) => {
       if (canDirectConnect()) {
         try {
@@ -4912,14 +4923,27 @@ ${msg.body}`);
         }
       }
       if (base && !proxy) {
+        const basePipe = pipeFromBase(base);
+        if (basePipe && !preferHttp) {
+          try {
+            return await createWebSocketTransport({ proxy: basePipe })(target);
+          } catch {
+          }
+        }
         try {
           return await createHttpTransport({ base })(target);
         } catch (err) {
-          try {
-            return await createWebSocketTransport({ proxy: inferPipe() })(target);
-          } catch {
-            throw err;
+          const fallbacks = [];
+          if (basePipe && preferHttp) fallbacks.push(basePipe);
+          const pagePipe = inferPipe();
+          if (pagePipe !== basePipe) fallbacks.push(pagePipe);
+          for (const pipe of fallbacks) {
+            try {
+              return await createWebSocketTransport({ proxy: pipe })(target);
+            } catch {
+            }
           }
+          throw err;
         }
       }
       if (proxy) return createWebSocketTransport({ proxy })(target);
@@ -5201,6 +5225,105 @@ havi-player video[hidden],havi-player canvas[hidden],havi-player img[hidden],.ha
     document.head.appendChild(style);
   }
 
+  // src/browser/worker-pipeline.js
+  init_buffer_shim();
+  var SCRIPT_URL = typeof document !== "undefined" && document.currentScript && document.currentScript.src ? document.currentScript.src : null;
+  var STOP_ACK_TIMEOUT_MS = 800;
+  function defaultWorkerUrl() {
+    return SCRIPT_URL;
+  }
+  function canUseWorker(workerUrl = SCRIPT_URL) {
+    return typeof Worker === "function" && !!workerUrl;
+  }
+  var _WorkerPipeline_instances, onMessage_fn, send_fn;
+  var WorkerPipeline = class extends Emitter {
+    constructor(url, options = {}) {
+      super();
+      __privateAdd(this, _WorkerPipeline_instances);
+      this.url = url;
+      this.options = options;
+      this.workerUrl = options.workerUrl || SCRIPT_URL;
+      this.worker = null;
+      this.subscribers = /* @__PURE__ */ new Set();
+      this.running = false;
+      this.stats = { frames: 0, bytes: 0, startedAt: Date.now(), reconnects: 0 };
+    }
+    start() {
+      if (this.running) return;
+      if (!canUseWorker(this.workerUrl)) throw new Error("Web Workers are not available here");
+      this.running = true;
+      this.worker = new Worker(this.workerUrl);
+      this.worker.onmessage = (event) => __privateMethod(this, _WorkerPipeline_instances, onMessage_fn).call(this, event.data || {});
+      this.worker.onerror = (event) => {
+        this.emit("error", new Error(event?.message || "RTSP worker failed"));
+      };
+      this.worker.postMessage({
+        type: "start",
+        url: this.url,
+        base: this.options.base,
+        proxy: this.options.proxy || this.options.pipe,
+        preferHttp: this.options.preferHttp === true,
+        timeoutMs: this.options.client?.timeoutMs
+      });
+    }
+    subscribe(send) {
+      this.subscribers.add(send);
+      return () => this.subscribers.delete(send);
+    }
+    stop() {
+      this.running = false;
+      for (const send of this.subscribers) {
+        try {
+          send({ type: "ended" });
+        } catch {
+        }
+      }
+      this.subscribers.clear();
+      const worker = this.worker;
+      this.worker = null;
+      if (!worker) return Promise.resolve();
+      return new Promise((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          worker.terminate();
+          resolve();
+        };
+        const timer = setTimeout(done, STOP_ACK_TIMEOUT_MS);
+        worker.onmessage = (event) => {
+          if (event.data?.type === "stopped") done();
+        };
+        try {
+          worker.postMessage({ type: "stop" });
+        } catch {
+          done();
+        }
+      });
+    }
+  };
+  _WorkerPipeline_instances = new WeakSet();
+  onMessage_fn = function(msg) {
+    if (!this.running) return;
+    if (msg.type === "bin") {
+      const bytes = new Uint8Array(msg.buf);
+      this.stats.bytes += bytes.length;
+      __privateMethod(this, _WorkerPipeline_instances, send_fn).call(this, bytes);
+    } else if (msg.type === "control") {
+      if (msg.msg?.type === "reconnect") this.stats.reconnects += 1;
+      __privateMethod(this, _WorkerPipeline_instances, send_fn).call(this, msg.msg);
+    } else if (msg.type === "error") {
+      this.emit("error", new Error(msg.message));
+    }
+  };
+  send_fn = function(payload) {
+    for (const send of this.subscribers) {
+      try {
+        send(payload);
+      } catch {
+        this.subscribers.delete(send);
+      }
+    }
+  };
+
   // src/browser/play.js
   function play(target, url, options = {}) {
     const els = resolveTarget(target, options);
@@ -5244,20 +5367,29 @@ havi-player video[hidden],havi-player canvas[hidden],havi-player img[hidden],.ha
       onInfo: options.onInfo || (() => {
       })
     });
-    const connect = options.client?.connect || createBrowserConnect({
-      proxy: options.proxy || options.pipe,
-      base: options.base
-    });
-    const pipeline = new RtspPipeline(stream, {
-      ...options,
-      client: { connect, ...options.client || {} }
-    });
+    const pipeline = createPipelineFor(stream, options);
     player.attach(pipeline);
     pipeline.on("error", (err) => options.onStatus?.(err.message, "err"));
     pipeline.start();
     handle.player = player;
     handle.pipeline = pipeline;
     return handle;
+  }
+  function createPipelineFor(stream, options) {
+    const wantWorker = options.worker === true && !options.client?.connect;
+    if (wantWorker && canUseWorker(options.workerUrl)) {
+      return new WorkerPipeline(stream, options);
+    }
+    if (wantWorker) options.onStatus?.("Worker unavailable, running in page.", "warn");
+    const connect = options.client?.connect || createBrowserConnect({
+      proxy: options.proxy || options.pipe,
+      base: options.base,
+      preferHttp: options.preferHttp
+    });
+    return new RtspPipeline(stream, {
+      ...options,
+      client: { connect, ...options.client || {} }
+    });
   }
   function resolveTarget(target, options = {}) {
     if (!target) throw new Error("play() needs a <video>, selector, or { video, canvas }");
@@ -5756,6 +5888,44 @@ havi-player video[hidden],havi-player canvas[hidden],havi-player img[hidden],.ha
     return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8" } });
   }
 
+  // src/browser/worker-host.js
+  init_buffer_shim();
+  function isWorkerScope() {
+    return typeof WorkerGlobalScope !== "undefined" && typeof self !== "undefined" && self instanceof WorkerGlobalScope && typeof document === "undefined";
+  }
+  function startWorkerHost(scope = self) {
+    let pipeline = null;
+    scope.onmessage = async (event) => {
+      const msg = event.data || {};
+      if (msg.type === "start") {
+        await stopPipeline();
+        const connect = createBrowserConnect({ base: msg.base, proxy: msg.proxy, preferHttp: msg.preferHttp });
+        pipeline = new RtspPipeline(msg.url, { client: { connect, timeoutMs: msg.timeoutMs } });
+        pipeline.subscribe(forward);
+        pipeline.on("error", (err) => scope.postMessage({ type: "error", message: err?.message || String(err) }));
+        pipeline.start();
+      } else if (msg.type === "stop") {
+        await stopPipeline();
+        scope.postMessage({ type: "stopped" });
+      }
+    };
+    async function stopPipeline() {
+      const current = pipeline;
+      pipeline = null;
+      if (current) await current.stop().catch(() => {
+      });
+    }
+    function forward(payload) {
+      if (payload instanceof Uint8Array) {
+        const whole = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength;
+        const buf = whole ? payload.buffer : payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
+        scope.postMessage({ type: "bin", buf }, [buf]);
+        return;
+      }
+      scope.postMessage({ type: "control", msg: payload });
+    }
+  }
+
   // src/browser.js
   var DEFAULT_PIPE = GATEWAY_PIPE;
   var currentLayer = {};
@@ -5770,7 +5940,8 @@ havi-player video[hidden],havi-player canvas[hidden],havi-player img[hidden],.ha
     const connect = options.client?.connect || createBrowserConnect({
       ...currentLayer,
       proxy: options.proxy || currentLayer.proxy,
-      base: options.base || currentLayer.base
+      base: options.base || currentLayer.base,
+      preferHttp: options.preferHttp ?? currentLayer.preferHttp
     });
     return new RtspPipeline(url, {
       ...options,
@@ -5783,6 +5954,7 @@ havi-player video[hidden],havi-player canvas[hidden],havi-player img[hidden],.ha
   if (isDenoHost()) {
     startDenoHost();
   }
+  if (isWorkerScope()) startWorkerHost();
   return __toCommonJS(browser_exports);
 })();
 //# sourceMappingURL=havi-rtsp.browser.js.map

@@ -4,6 +4,7 @@ import { normalizeRtspUrl } from "../rtsp/client.js";
 import { createBrowserPlayer } from "./player.js";
 import { createBrowserConnect } from "./connect.js";
 import { ensureBaseStyles } from "./styles.js";
+import { WorkerPipeline, canUseWorker } from "./worker-pipeline.js";
 
 export function play(target, url, options = {}) {
   const els = resolveTarget(target, options);
@@ -50,20 +51,34 @@ export function play(target, url, options = {}) {
     onStatus: options.onStatus || (() => {}),
     onInfo: options.onInfo || (() => {}),
   });
-  const connect = options.client?.connect || createBrowserConnect({
-    proxy: options.proxy || options.pipe,
-    base: options.base,
-  });
-  const pipeline = new RtspPipeline(stream, {
-    ...options,
-    client: { connect, ...(options.client || {}) },
-  });
+  const pipeline = createPipelineFor(stream, options);
   player.attach(pipeline);
   pipeline.on("error", (err) => options.onStatus?.(err.message, "err"));
   pipeline.start();
   handle.player = player;
   handle.pipeline = pipeline;
   return handle;
+}
+
+// options.worker: true  -> RTSP + depay + remux run in a dedicated Worker (this bundle loaded as
+// the worker script; override with options.workerUrl). MSE stays on the main thread and receives
+// transferred ArrayBuffers. Falls back to in-page when Workers are unavailable or a custom
+// client.connect is supplied (a connect function cannot cross the thread boundary).
+function createPipelineFor(stream, options) {
+  const wantWorker = options.worker === true && !options.client?.connect;
+  if (wantWorker && canUseWorker(options.workerUrl)) {
+    return new WorkerPipeline(stream, options);
+  }
+  if (wantWorker) options.onStatus?.("Worker unavailable, running in page.", "warn");
+  const connect = options.client?.connect || createBrowserConnect({
+    proxy: options.proxy || options.pipe,
+    base: options.base,
+    preferHttp: options.preferHttp,
+  });
+  return new RtspPipeline(stream, {
+    ...options,
+    client: { connect, ...(options.client || {}) },
+  });
 }
 
 export function resolveTarget(target, options = {}) {
